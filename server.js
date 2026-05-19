@@ -117,3 +117,167 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`UNIOSUN LMS Backend running on port ${PORT}`));
+
+/**
+ * @swagger
+ * /api/auth/upload-photo/{id}:
+ *   put:
+ *     summary: Upload or update user profile photo
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - image
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Profile image file (max 200KB)
+ *     responses:
+ *       200:
+ *         description: Profile photo updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 profileImage:
+ *                   type: string
+ *       400:
+ *         description: Invalid file or missing image
+ *       403:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  '/upload-photo/:id',
+  protect,
+  upload.single('image'),
+  async (req, res) => {
+    try {
+
+      const user = await User.findById(req.params.id);
+
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // ownership check
+      if (
+        req.user.id !== user._id.toString() &&
+        req.user.role !== 'admin'
+      ) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: "No image uploaded" });
+      }
+
+      // enforce 200KB again (double safety)
+      if (req.file.size > 200 * 1024) {
+        return res.status(400).json({
+          error: "Image must be less than 200KB"
+        });
+      }
+
+      // create unique filename
+      const fileName = `profile/${user._id}-${crypto.randomUUID()}`;
+
+      // upload to S3
+      const imageUrl = await uploadToS3(
+        req.file.buffer,
+        fileName,
+        req.file.mimetype
+      );
+
+      user.profileImage = imageUrl;
+
+      await user.save();
+
+      res.json({
+        message: "Profile photo updated",
+        profileImage: imageUrl
+      });
+
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+/**
+ * @swagger
+ * /api/auth/remove-photo/{id}:
+ *   put:
+ *     summary: Remove user profile photo
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: Profile photo removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       403:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/remove-photo/:id', protect, async (req, res) => {
+  try {
+
+    const user = await User.findById(req.params.id);
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (
+      req.user.id !== user._id.toString() &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+
+    user.profileImage = null;
+    await user.save();
+
+    res.json({ message: "Profile photo removed" });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
