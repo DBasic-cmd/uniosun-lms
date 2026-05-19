@@ -8,7 +8,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-const Course = require('./src/models/course');
+const Course = require('./src/models/Course');
 const { generateDownloadUrl } = require('./src/utils/s3Helpers');
 const upload = require('./src/middleware/upload');
 
