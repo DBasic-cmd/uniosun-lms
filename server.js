@@ -167,7 +167,7 @@ app.listen(PORT, () => console.log(`UNIOSUN LMS Backend running on port ${PORT}`
  *       500:
  *         description: Server error
  */
-router.put(
+app.put(
   '/upload-photo/:id',
   protect,
   upload.single('image'),
@@ -256,7 +256,7 @@ router.put(
  *       500:
  *         description: Server error
  */
-router.put('/remove-photo/:id', protect, async (req, res) => {
+app.put('/remove-photo/:id', protect, async (req, res) => {
   try {
 
     const user = await User.findById(req.params.id);
