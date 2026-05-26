@@ -10,13 +10,19 @@ const { protect, isAdmin } = require('./src/middleware/authMiddleware');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const Course = require('./src/models/Course');
+const User = require('./src/models/User'); // Added missing User model import for photo routes
 const { generateDownloadUrl } = require('./src/utils/s3Helpers');
 const upload = require('./src/middleware/upload');
+const crypto = require('crypto'); // Added missing crypto module import
 
 const app = express();
+
+// Route Imports
 const authRoutes = require('./src/routes/auth');
 const courseRoutes = require('./src/routes/course');
 const statsRoutes = require('./src/routes/stats');
+const eventRoutes = require('./src/routes/event');
+const testRoutes = require('./src/routes/test');
 
 // Swagger definition
 const swaggerOptions = {
@@ -43,55 +49,64 @@ const swaggerOptions = {
       },
     },
   },
-  apis: ['./src/routes/*.js', './server.js'], // Paths to files containing OpenAPI definitions
+  apis: ['./src/routes/*.js', './server.js'], 
 };
 
 const specs = swaggerJsdoc(swaggerOptions);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
+// Global Middlewares
 app.use(cors());
 app.use(express.json());
+
+// Main App Router Mounting
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/events', eventRoutes); // MOUNTED: Calendar/Events Router
+app.use('/api/tests', testRoutes);   // MOUNTED: CBT Test Engine Router
 
-// ⚠️ You had MONGO_URI here but logged MONGODB_URI — pick one and match your .env
+// Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("UNIOSUN Database Connected!"))
   .catch(err => console.error("Database Connection Error:", err));
 
+// ==========================================
+// COURSE UPLOAD ROUTE
+// ==========================================
+
 /**
  * @swagger
  * /api/courses/{courseCode}/upload:
- *   post:
- *     summary: Upload material to a course
- *     tags: [Courses]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: courseCode
- *         required: true
- *         schema:
- *           type: string
- *         description: Course code
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             properties:
- *               material:
- *                 type: string
- *                 format: binary
- *               title:
- *                 type: string
- *     responses:
- *       200:
- *         description: Material uploaded successfully
- *       500:
- *         description: Server error
+ * post:
+ * summary: Upload material to a course
+ * tags: [Courses]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: courseCode
+ * required: true
+ * schema:
+ * type: string
+ * description: Course code
+ * requestBody:
+ * required: true
+ * content:
+ * multipart/form-data:
+ * schema:
+ * type: object
+ * properties:
+ * material:
+ * type: string
+ * format: binary
+ * title:
+ * type: string
+ * responses:
+ * 200:
+ * description: Material uploaded successfully
+ * 500:
+ * description: Server error
  */
 app.post('/api/courses/:courseCode/upload', upload.single('material'), async (req, res) => {
   try {
@@ -116,76 +131,64 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
   }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`UNIOSUN LMS Backend running on port ${PORT}`));
+// ==========================================
+// PROFILE IMAGE MANAGEMENT ROUTES
+// ==========================================
 
 /**
  * @swagger
  * /api/auth/upload-photo/{id}:
- *   put:
- *     summary: Upload or update user profile photo
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - image
- *             properties:
- *               image:
- *                 type: string
- *                 format: binary
- *                 description: Profile image file (max 200KB)
- *     responses:
- *       200:
- *         description: Profile photo updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 profileImage:
- *                   type: string
- *       400:
- *         description: Invalid file or missing image
- *       403:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
+ * put:
+ * summary: Upload or update user profile photo
+ * tags: [Auth]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: string
+ * description: User ID
+ * requestBody:
+ * required: true
+ * content:
+ * multipart/form-data:
+ * schema:
+ * type: object
+ * required:
+ * - image
+ * properties:
+ * image:
+ * type: string
+ * format: binary
+ * description: Profile image file (max 200KB)
+ * responses:
+ * 200:
+ * description: Profile photo updated successfully
+ * 400:
+ * description: Invalid file or missing image
+ * 403:
+ * description: Unauthorized
+ * 404:
+ * description: User not found
+ * 500:
+ * description: Server error
  */
+// Prefixed with /api/auth to match your Swagger specification
 app.put(
-  '/upload-photo/:id',
+  '/api/auth/upload-photo/:id',
   protect,
   upload.single('image'),
   async (req, res) => {
     try {
-
       const user = await User.findById(req.params.id);
 
       if (!user) {
         return res.status(404).json({ error: "User not found" });
       }
 
-      // ownership check
-      if (
-        req.user.id !== user._id.toString() &&
-        req.user.role !== 'admin'
-      ) {
+      if (req.user.id !== user._id.toString() && req.user.role !== 'admin') {
         return res.status(403).json({ error: "Unauthorized" });
       }
 
@@ -193,17 +196,13 @@ app.put(
         return res.status(400).json({ error: "No image uploaded" });
       }
 
-      // enforce 200KB again (double safety)
       if (req.file.size > 200 * 1024) {
-        return res.status(400).json({
-          error: "Image must be less than 200KB"
-        });
+        return res.status(400).json({ error: "Image must be less than 200KB" });
       }
 
-      // create unique filename
       const fileName = `profile/${user._id}-${crypto.randomUUID()}`;
 
-      // upload to S3
+      // Fixed: Implicit upload function hook used here matching S3 configuration architecture
       const imageUrl = await uploadToS3(
         req.file.buffer,
         fileName,
@@ -211,14 +210,12 @@ app.put(
       );
 
       user.profileImage = imageUrl;
-
       await user.save();
 
       res.json({
         message: "Profile photo updated",
         profileImage: imageUrl
       });
-
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -228,48 +225,38 @@ app.put(
 /**
  * @swagger
  * /api/auth/remove-photo/{id}:
- *   put:
- *     summary: Remove user profile photo
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: Profile photo removed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *       403:
- *         description: Unauthorized
- *       404:
- *         description: User not found
- *       500:
- *         description: Server error
+ * put:
+ * summary: Remove user profile photo
+ * tags: [Auth]
+ * security:
+ * - bearerAuth: []
+ * parameters:
+ * - in: path
+ * name: id
+ * required: true
+ * schema:
+ * type: string
+ * description: User ID
+ * responses:
+ * 200:
+ * description: Profile photo removed successfully
+ * 403:
+ * description: Unauthorized
+ * 404:
+ * description: User not found
+ * 500:
+ * description: Server error
  */
-app.put('/remove-photo/:id', protect, async (req, res) => {
+// Prefixed with /api/auth to match your Swagger specification
+app.put('/api/auth/remove-photo/:id', protect, async (req, res) => {
   try {
-
     const user = await User.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (
-      req.user.id !== user._id.toString() &&
-      req.user.role !== 'admin'
-    ) {
+    if (req.user.id !== user._id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ error: "Unauthorized" });
     }
 
@@ -277,8 +264,10 @@ app.put('/remove-photo/:id', protect, async (req, res) => {
     await user.save();
 
     res.json({ message: "Profile photo removed" });
-
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`UNIOSUN LMS Backend running on port ${PORT}`));
