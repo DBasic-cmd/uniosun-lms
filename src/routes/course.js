@@ -6,8 +6,8 @@ const { protect, isAdmin } = require('../middleware/authMiddleware');
 /**
  * @swagger
  * tags:
- *   name: Courses
- *   description: Course management
+ *   - name: Courses
+ *     description: Course management
  */
 
 /**
@@ -76,53 +76,53 @@ router.post('/create-course', protect, isAdmin, async (req, res) => {
 /**
  * @swagger
  * /api/courses/enroll:
- * post:
- * summary: Enroll a student in a course from the catalog
- * tags: [Courses]
- * security:
- * - bearerAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - courseId
- * properties:
- * courseId:
- * type: string
- * description: The MongoDB Object ID of the course
- * example: 65f123456789abcdef123456
- * responses:
- * 200:
- * description: Successfully enrolled in the course
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * message:
- * type: string
- * enrolledCourses:
- * type: array
- * items:
- * type: string
- * 400:
- * description: Already enrolled or invalid request
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * error:
- * type: string
- * 403:
- * description: Only students can enroll in courses
- * 404:
- * description: Course not found
- * 500:
- * description: Server error
+ *   post:
+ *     summary: Enroll a student in a course from the catalog
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - courseId
+ *             properties:
+ *               courseId:
+ *                 type: string
+ *                 description: The MongoDB Object ID of the course
+ *                 example: 65f123456789abcdef123456
+ *     responses:
+ *       200:
+ *         description: Successfully enrolled in the course
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 enrolledCourses:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: Already enrolled or invalid request
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 error:
+ *                   type: string
+ *       403:
+ *         description: Only students can enroll in courses
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
  */
 // POST /api/courses/enroll
 router.post('/enroll', protect, async (req, res) => {

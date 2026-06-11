@@ -7,8 +7,8 @@ const { protect, isAdmin } = require("../middleware/authMiddleware");
 /**
  * @swagger
  * tags:
- *   name: Stats
- *   description: Statistics and dashboard
+ *   - name: Stats
+ *     description: Statistics and dashboard
  */
 
 /**

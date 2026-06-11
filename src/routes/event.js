@@ -7,90 +7,90 @@ const { protect } = require('../middleware/authMiddleware');
 /**
  * @swagger
  * tags:
- * name: Events
- * description: Calendar and Schedule management for Lecturers and Students
+ *   - name: Events
+ *     description: Calendar and Schedule management for Lecturers and Students
  */
 
 /**
  * @swagger
  * /api/events/create:
- * post:
- * summary: Create a new calendar event
- * tags: [Events]
- * security:
- * - bearerAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - title
- * - course
- * - locationType
- * - locationDetails
- * - date
- * - startTime
- * - endTime
- * properties:
- * title:
- * type: string
- * example: CSC 201 Mid-Semester Test
- * course:
- * type: string
- * description: MongoDB Object ID of the course
- * example: 65f123456789abcdef123456
- * frequency:
- * type: string
- * enum: [once, weekly, monthly]
- * example: once
- * locationType:
- * type: string
- * enum: [online, physical]
- * example: physical
- * locationDetails:
- * type: string
- * description: Classroom hall name or meeting link
- * example: ETF Hall Room 2
- * instruction:
- * type: string
- * example: Bring your ID cards and scientific calculators.
- * date:
- * type: string
- * format: date
- * example: 2026-06-15
- * startTime:
- * type: string
- * example: 09:00 AM
- * endTime:
- * type: string
- * example: 11:00 AM
- * responses:
- * 201:
- * description: Event added to calendar successfully
- * 400:
- * description: Missing required fields
- * 403:
- * description: Access denied. Lecturers and Admins only.
- * 500:
- * description: Server error
+ *   post:
+ *     summary: Create a new calendar event
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - title
+ *               - course
+ *               - locationType
+ *               - locationDetails
+ *               - date
+ *               - startTime
+ *               - endTime
+ *             properties:
+ *               title:
+ *                 type: string
+ *                 example: CSC 201 Mid-Semester Test
+ *               course:
+ *                 type: string
+ *                 description: MongoDB Object ID of the course
+ *                 example: 65f123456789abcdef123456
+ *               frequency:
+ *                 type: string
+ *                 enum: [once, weekly, monthly]
+ *                 example: once
+ *               locationType:
+ *                 type: string
+ *                 enum: [online, physical]
+ *                 example: physical
+ *               locationDetails:
+ *                 type: string
+ *                 description: Classroom hall name or meeting link
+ *                 example: ETF Hall Room 2
+ *               instruction:
+ *                 type: string
+ *                 example: Bring your ID cards and scientific calculators.
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: 2026-06-15
+ *               startTime:
+ *                 type: string
+ *                 example: 09:00 AM
+ *               endTime:
+ *                 type: string
+ *                 example: 11:00 AM
+ *     responses:
+ *       201:
+ *         description: Event added to calendar successfully
+ *       400:
+ *         description: Missing required fields
+ *       403:
+ *         description: Access denied. Lecturers and Admins only.
+ *       500:
+ *         description: Server error
  */
 
 /**
  * @swagger
  * /api/events:
- * get:
- * summary: Get calendar events
- * description: Admins/Lecturers see all events. Students see a filtered view if implemented.
- * tags: [Events]
- * security:
- * - bearerAuth: []
- * responses:
- * 200:
- * description: List of events retrieved successfully
- * 500:
- * description: Server error
+ *   get:
+ *     summary: Get calendar events
+ *     description: Admins/Lecturers see all events. Students see a filtered view if implemented.
+ *     tags: [Events]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of events retrieved successfully
+ *       500:
+ *         description: Server error
  */
 
 // @route   POST /api/events/create

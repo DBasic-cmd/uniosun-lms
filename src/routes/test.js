@@ -8,90 +8,90 @@ const { protect } = require('../middleware/authMiddleware');
 /**
  * @swagger
  * tags:
- * name: CBT Test Engine
- * description: Examination and Question Management for Lecturers
+ *   - name: CBT Test Engine
+ *     description: Examination and Question Management for Lecturers
  */
 
 /**
  * @swagger
  * /api/tests/settings:
- * post:
- * summary: Configure and schedule a test session
- * tags: [CBT Test Engine]
- * security:
- * - bearerAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required: [course, testTitle, testType, date, startTime, endTime, numberOfQuestions, marksPerQuestion]
- * properties:
- * course:
- * type: string
- * example: 65f123456789abcdef123456
- * testTitle:
- * type: string
- * example: Harmattan Semester Test 1
- * testType:
- * type: string
- * enum: [multiple-choice, theory]
- * date:
- * type: string
- * format: date
- * example: 2026-06-20
- * startTime:
- * type: string
- * example: "10:00 AM"
- * endTime:
- * type: string
- * example: "11:00 AM"
- * numberOfQuestions:
- * type: number
- * example: 20
- * marksPerQuestion:
- * type: number
- * example: 2
- * instructions:
- * type: string
- * example: "Answer all questions. Strict monitoring enabled."
+ *   post:
+ *     summary: Configure and schedule a test session
+ *     tags: [CBT Test Engine]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [course, testTitle, testType, date, startTime, endTime, numberOfQuestions, marksPerQuestion]
+ *             properties:
+ *               course:
+ *                 type: string
+ *                 example: 65f123456789abcdef123456
+ *               testTitle:
+ *                 type: string
+ *                 example: Harmattan Semester Test 1
+ *               testType:
+ *                 type: string
+ *                 enum: [multiple-choice, theory]
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: 2026-06-20
+ *               startTime:
+ *                 type: string
+ *                 example: "10:00 AM"
+ *               endTime:
+ *                 type: string
+ *                 example: "11:00 AM"
+ *               numberOfQuestions:
+ *                 type: number
+ *                 example: 20
+ *               marksPerQuestion:
+ *                 type: number
+ *                 example: 2
+ *               instructions:
+ *                 type: string
+ *                 example: "Answer all questions. Strict monitoring enabled."
  */
 
 /**
  * @swagger
  * /api/tests/{testId}/questions:
- * post:
- * summary: Add a question to an existing test configuration
- * tags: [CBT Test Engine]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: testId
- * required: true
- * schema:
- * type: string
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required: [questionText, correctAnswer]
- * properties:
- * questionText:
- * type: string
- * example: "What is the primary core module used for handling network events in Node.js?"
- * options:
- * type: array
- * items:
- * type: string
- * example: ["fs", "http", "crypto", "path"]
- * correctAnswer:
- * type: string
- * description: "The index value or plain text answer matching the option pattern"
- * example: "1"
+ *   post:
+ *     summary: Add a question to an existing test configuration
+ *     tags: [CBT Test Engine]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: testId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [questionText, correctAnswer]
+ *             properties:
+ *               questionText:
+ *                 type: string
+ *                 example: "What is the primary core module used for handling network events in Node.js?"
+ *               options:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   example: ["fs", "http", "crypto", "path"]
+ *               correctAnswer:
+ *                 type: string
+ *                 description: "The index value or plain text answer matching the option pattern"
+ *                 example: "1"
  */
 
 

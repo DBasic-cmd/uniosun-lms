@@ -9,49 +9,49 @@ const Course = require("../models/Course");
 /**
  * @swagger
  * tags:
- * name: Auth
- * description: Authentication management
+ *   - name: Auth
+ *     description: Authentication management
  */
 
 /**
  * @swagger
  * /api/auth/register:
- * post:
- * summary: Register a new user
- * tags: [Auth]
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - name
- * - identifier
- * - email
- * - password
- * - role
- * - department
- * properties:
- * name:
- * type: string
- * identifier:
- * type: string
- * email:
- * type: string
- * password:
- * type: string
- * role:
- * type: string
- * department:
- * type: string
- * responses:
- * 201:
- * description: User created successfully
- * 400:
- * description: User already exists
- * 500:
- * description: Server error
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - identifier
+ *               - email
+ *               - password
+ *               - role
+ *               - department
+ *             properties:
+ *               name:
+ *                 type: string
+ *               identifier:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *               department:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *       400:
+ *         description: User already exists
+ *       500:
+ *         description: Server error
  */
 router.post("/register", async (req, res) => {
   try {
@@ -86,44 +86,44 @@ router.post("/register", async (req, res) => {
 /**
  * @swagger
  * /api/auth/login:
- * post:
- * summary: Login a user
- * tags: [Auth]
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - loginKey
- * - password
- * properties:
- * loginKey:
- * type: string
- * description: Email or identifier
- * password:
- * type: string
- * responses:
- * 200:
- * description: Login successful
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * token:
- * type: string
- * user:
- * type: object
- * 400:
- * description: Invalid credentials
- * 403:
- * description: Account suspended
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   post:
+ *     summary: Login a user
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - loginKey
+ *               - password
+ *             properties:
+ *               loginKey:
+ *                 type: string
+ *                 description: Email or identifier
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 user:
+ *                   type: object
+ *       400:
+ *         description: Invalid credentials
+ *       403:
+ *         description: Account suspended
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.post("/login", async (req, res) => {
   try {
@@ -175,25 +175,25 @@ router.post("/login", async (req, res) => {
 /**
  * @swagger
  * /api/auth/toggle-status/{id}:
- * put:
- * summary: Toggle user status (active/suspended)
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: User ID
- * responses:
- * 200:
- * description: User status updated
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   put:
+ *     summary: Toggle user status (active/suspended)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User status updated
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.put("/toggle-status/:id", protect, isAdmin, async (req, res) => {
   try {
@@ -212,49 +212,49 @@ router.put("/toggle-status/:id", protect, isAdmin, async (req, res) => {
 /**
  * @swagger
  * /api/auth/edit-user/{id}:
- * put:
- * summary: Edit user details (Admin manages all, User updates own profile)
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: User ID
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * properties:
- * name:
- * type: string
- * email:
- * type: string
- * identifier:
- * type: string
- * role:
- * type: string
- * department:
- * type: string
- * status:
- * type: string
- * enum: [active, suspended]
- * responses:
- * 200:
- * description: User updated successfully
- * 400:
- * description: Email or Identifier already exists
- * 403:
- * description: Unauthorized access
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   put:
+ *     summary: Edit user details (Admin manages all, User updates own profile)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *               identifier:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *               department:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *                 enum: [active, suspended]
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       400:
+ *         description: Email or Identifier already exists
+ *       403:
+ *         description: Unauthorized access
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.put("/edit-user/:id", protect, async (req, res) => {
   try {
@@ -330,27 +330,27 @@ router.get("/users", protect, isAdmin, async (req, res) => {
 /**
  * @swagger
  * /api/auth/user/{id}:
- * get:
- * summary: Get single user information
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: User ID
- * responses:
- * 200:
- * description: User retrieved successfully
- * 403:
- * description: Access denied
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   get:
+ *     summary: Get single user information
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User retrieved successfully
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 router.get("/user/:id", protect, async (req, res) => {
   try {
@@ -375,37 +375,37 @@ router.get("/user/:id", protect, async (req, res) => {
 /**
  * @swagger
  * /api/auth/change-password:
- * put:
- * summary: Change logged-in user's password
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * requestBody:
- * required: true
- * content:
- * application/json:
- * schema:
- * type: object
- * required:
- * - currentPassword
- * - newPassword
- * - confirmPassword
- * properties:
- * currentPassword:
- * type: string
- * newPassword:
- * type: string
- * confirmPassword:
- * type: string
- * responses:
- * 200:
- * description: Password updated successfully
- * 400:
- * description: Validation errors (passwords mismatch, wrong current password)
- * 401:
- * description: Unauthorized
- * 500:
- * description: Server error
+ *   put:
+ *     summary: Change logged-in user's password
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - currentPassword
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               currentPassword:
+ *                 type: string
+ *               newPassword:
+ *                 type: string
+ *               confirmPassword:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Password updated successfully
+ *       400:
+ *         description: Validation errors (passwords mismatch, wrong current password)
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
  */
 // PUT /api/auth/change-password
 router.put('/change-password', protect, async (req, res) => {

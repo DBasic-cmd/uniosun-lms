@@ -78,35 +78,35 @@ mongoose.connect(process.env.MONGO_URI)
 /**
  * @swagger
  * /api/courses/{courseCode}/upload:
- * post:
- * summary: Upload material to a course
- * tags: [Courses]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: courseCode
- * required: true
- * schema:
- * type: string
- * description: Course code
- * requestBody:
- * required: true
- * content:
- * multipart/form-data:
- * schema:
- * type: object
- * properties:
- * material:
- * type: string
- * format: binary
- * title:
- * type: string
- * responses:
- * 200:
- * description: Material uploaded successfully
- * 500:
- * description: Server error
+ *   post:
+ *     summary: Upload material to a course
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseCode
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Course code
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               material:
+ *                 type: string
+ *                 format: binary
+ *               title:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Material uploaded successfully
+ *       500:
+ *         description: Server error
  */
 app.post('/api/courses/:courseCode/upload', upload.single('material'), async (req, res) => {
   try {
@@ -138,42 +138,42 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
 /**
  * @swagger
  * /api/auth/upload-photo/{id}:
- * put:
- * summary: Upload or update user profile photo
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: User ID
- * requestBody:
- * required: true
- * content:
- * multipart/form-data:
- * schema:
- * type: object
- * required:
- * - image
- * properties:
- * image:
- * type: string
- * format: binary
- * description: Profile image file (max 200KB)
- * responses:
- * 200:
- * description: Profile photo updated successfully
- * 400:
- * description: Invalid file or missing image
- * 403:
- * description: Unauthorized
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   put:
+ *     summary: Upload or update user profile photo
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - image
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *                 description: Profile image file (max 200KB)
+ *     responses:
+ *       200:
+ *         description: Profile photo updated successfully
+ *       400:
+ *         description: Invalid file or missing image
+ *       403:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 // Prefixed with /api/auth to match your Swagger specification
 app.put(
@@ -225,27 +225,27 @@ app.put(
 /**
  * @swagger
  * /api/auth/remove-photo/{id}:
- * put:
- * summary: Remove user profile photo
- * tags: [Auth]
- * security:
- * - bearerAuth: []
- * parameters:
- * - in: path
- * name: id
- * required: true
- * schema:
- * type: string
- * description: User ID
- * responses:
- * 200:
- * description: Profile photo removed successfully
- * 403:
- * description: Unauthorized
- * 404:
- * description: User not found
- * 500:
- * description: Server error
+ *   put:
+ *     summary: Remove user profile photo
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: Profile photo removed successfully
+ *       403:
+ *         description: Unauthorized
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
  */
 // Prefixed with /api/auth to match your Swagger specification
 app.put('/api/auth/remove-photo/:id', protect, async (req, res) => {
