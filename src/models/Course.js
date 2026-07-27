@@ -6,6 +6,7 @@ const courseSchema = new mongoose.Schema({
   department: { type: String, required: true }, // e.g., "Computer Science"
   lecturer: { type: String },
   level: { type: String },
+  status: { type: String, enum: ["Active", "Draft"], default: "Draft" },
   materials: [{
     title: String,
     s3Key: String,
