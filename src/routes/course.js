@@ -168,4 +168,116 @@ router.post('/enroll', protect, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/courses:
+ *   get:
+ *     summary: Retrieve all courses
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all courses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *                 courses:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       courseCode:
+ *                         type: string
+ *                       title:
+ *                         type: string
+ *                       department:
+ *                         type: string
+ *       500:
+ *         description: Server error
+ */
+router.get('/', protect, async (req, res) => {
+  try {
+    const courses = await Course.find().sort({ courseCode: 1 });
+    res.status(200).json({ count: courses.length, courses });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/courses/edit-course/{id}:
+ *   put:
+ *     summary: Edit course details (Admin only)
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Course ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               courseCode:
+ *                 type: string
+ *               title:
+ *                 type: string
+ *               department:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Course updated successfully
+ *       400:
+ *         description: Invalid parameters or course code already exists
+ *       404:
+ *         description: Course not found
+ *       500:
+ *         description: Server error
+ */
+router.put('/edit-course/:id', protect, isAdmin, async (req, res) => {
+  try {
+    const { courseCode, title, department } = req.body;
+    const course = await Course.findById(req.params.id);
+
+    if (!course) {
+      return res.status(404).json({ error: "Course not found" });
+    }
+
+    if (courseCode) {
+      const normalizedCode = courseCode.toUpperCase();
+      const existingCourse = await Course.findOne({
+        courseCode: normalizedCode,
+        _id: { $ne: req.params.id }
+      });
+      if (existingCourse) {
+        return res.status(400).json({ error: "Course code already exists" });
+      }
+      course.courseCode = normalizedCode;
+    }
+
+    if (title) course.title = title;
+    if (department) course.department = department;
+
+    await course.save();
+    res.status(200).json({ message: "Course updated successfully", course });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
