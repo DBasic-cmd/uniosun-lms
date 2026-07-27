@@ -300,7 +300,7 @@ router.put("/edit-user/:id", protect, async (req, res) => {
 
     if (name) user.name = name;
     if (department) user.department = department;
-    
+
     // Strict admin overrides
     if (req.user.role === "admin") {
       if (role) user.role = role;
@@ -445,6 +445,28 @@ router.put('/change-password', protect, async (req, res) => {
 
     res.status(200).json({ success: true, message: "Password updated successfully!" });
 
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout a user
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       500:
+ *         description: Server error
+ */
+router.post('/logout', protect, async (req, res) => {
+  try {
+    res.status(200).json({ success: true, message: "Logged out successfully!" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
