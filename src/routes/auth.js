@@ -314,7 +314,50 @@ router.put("/edit-user/:id", protect, async (req, res) => {
   }
 });
 
-// GET /api/auth/users
+/**
+ * @swagger
+ * /api/auth/users:
+ *   get:
+ *     summary: Retrieve all users (Admin only)
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all users retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 count:
+ *                   type: integer
+ *                 users:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       identifier:
+ *                         type: string
+ *                       role:
+ *                         type: string
+ *                       department:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       lastActive:
+ *                         type: string
+ *       403:
+ *         description: Access denied. Admins only.
+ *       500:
+ *         description: Server error
+ */
 router.get("/users", protect, isAdmin, async (req, res) => {
   try {
     const users = await User.find()
