@@ -4,6 +4,8 @@ const courseSchema = new mongoose.Schema({
   courseCode: { type: String, required: true, unique: true, uppercase: true },
   title: { type: String, required: true },
   department: { type: String, required: true }, // e.g., "Computer Science"
+  lecturer: { type: String },
+  level: { type: String },
   materials: [{
     title: String,
     s3Key: String,

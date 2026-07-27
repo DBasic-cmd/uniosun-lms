@@ -46,7 +46,7 @@ const { protect, isAdmin } = require('../middleware/authMiddleware');
 // POST /api/courses/create
 router.post('/create-course', protect, isAdmin, async (req, res) => {
   try {
-    const { courseCode, title, department } = req.body;
+    const { courseCode, title, department, lecturer, level } = req.body;
 
     // 1. Check if course already exists
     const existingCourse = await Course.findOne({ courseCode: courseCode.toUpperCase() });
@@ -59,6 +59,8 @@ router.post('/create-course', protect, isAdmin, async (req, res) => {
       courseCode: courseCode.toUpperCase(),
       title,
       department,
+      lecturer,
+      level,
       materials: [] // Starts empty
     });
 
@@ -251,7 +253,7 @@ router.get('/', protect, async (req, res) => {
  */
 router.put('/edit-course/:id', protect, isAdmin, async (req, res) => {
   try {
-    const { courseCode, title, department } = req.body;
+    const { courseCode, title, department, lecturer, level } = req.body;
     const course = await Course.findById(req.params.id);
 
     if (!course) {
@@ -272,6 +274,8 @@ router.put('/edit-course/:id', protect, isAdmin, async (req, res) => {
 
     if (title) course.title = title;
     if (department) course.department = department;
+    if (lecturer) course.lecturer = lecturer;
+    if (level) course.level = level;
 
     await course.save();
     res.status(200).json({ message: "Course updated successfully", course });
