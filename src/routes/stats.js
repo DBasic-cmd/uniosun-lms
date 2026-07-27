@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
 const Course = require("../models/Course");
+const Event = require("../models/Event");
+const Test = require("../models/Test");
+const Broadcast = require("../models/Broadcast");
 const { protect, isAdmin } = require("../middleware/authMiddleware");
 
 /**
@@ -38,21 +41,32 @@ const { protect, isAdmin } = require("../middleware/authMiddleware");
  *                       type: integer
  *                     courses:
  *                       type: integer
+ *                     events:
+ *                       type: integer
+ *                     tests:
+ *                       type: integer
+ *                     broadcasts:
+ *                       type: integer
  *       500:
  *         description: Server error
  */
 // GET /api/stats/dashboard
 router.get("/dashboard", protect, isAdmin, async (req, res) => {
   try {
-    // We run these in parallel to make it super fast
-    const [activeStudents, suspendedStudents] = await Promise.all([
-      User.countDocuments({ role: "student", status: "active" }),
-      User.countDocuments({ role: "student", status: "suspended" }),
-    ]);
-    const [totalStudents, totalLecturers, totalCourses] = await Promise.all([
+    const [
+      totalStudents,
+      totalLecturers,
+      totalCourses,
+      totalEvents,
+      totalTests,
+      totalBroadcasts
+    ] = await Promise.all([
       User.countDocuments({ role: "student" }),
       User.countDocuments({ role: "lecturer" }),
       Course.countDocuments(),
+      Event.countDocuments(),
+      Test.countDocuments(),
+      Broadcast.countDocuments()
     ]);
 
     res.json({
@@ -61,6 +75,9 @@ router.get("/dashboard", protect, isAdmin, async (req, res) => {
         students: totalStudents,
         lecturers: totalLecturers,
         courses: totalCourses,
+        events: totalEvents,
+        tests: totalTests,
+        broadcasts: totalBroadcasts
       },
     });
   } catch (err) {
