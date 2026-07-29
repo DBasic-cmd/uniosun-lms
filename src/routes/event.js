@@ -168,4 +168,51 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @route   PUT /api/events/:id
+// @desc    Update a calendar event (Lecturers & Admins only)
+router.put('/:id', protect, async (req, res) => {
+  try {
+    if (req.user.role !== 'lecturer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. Only lecturers can update events." });
+    }
+    const { title, course, frequency, locationType, locationDetails, instruction, date, startTime, endTime } = req.body;
+    const event = await Event.findById(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+    
+    if (title) event.title = title;
+    if (course) event.course = course;
+    if (frequency) event.frequency = frequency;
+    if (locationType) event.locationType = locationType;
+    if (locationDetails) event.locationDetails = locationDetails;
+    if (instruction) event.instruction = instruction;
+    if (date) event.date = date;
+    if (startTime) event.startTime = startTime;
+    if (endTime) event.endTime = endTime;
+
+    await event.save();
+    res.status(200).json({ success: true, message: "Event updated successfully!", event });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// @route   DELETE /api/events/:id
+// @desc    Delete a calendar event (Lecturers & Admins only)
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    if (req.user.role !== 'lecturer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. Only lecturers can delete events." });
+    }
+    const event = await Event.findByIdAndDelete(req.params.id);
+    if (!event) {
+      return res.status(404).json({ error: "Event not found." });
+    }
+    res.status(200).json({ success: true, message: "Event deleted successfully!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
