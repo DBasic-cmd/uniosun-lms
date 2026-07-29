@@ -362,9 +362,20 @@ router.put("/edit-user/:id", protect, async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get("/users", protect, isAdmin, async (req, res) => {
+router.get("/users", protect, async (req, res) => {
   try {
-    const users = await User.find()
+    if (req.user.role !== "admin" && req.user.role !== "lecturer") {
+      return res.status(403).json({ error: "Access denied. Admins or Lecturers only." });
+    }
+
+    let query = {};
+    if (req.user.role === "lecturer") {
+      query = { $or: [{ role: "student" }, { _id: req.user.id }] };
+    } else if (req.user.role === "admin") {
+      query = { role: { $in: ["student", "lecturer"] } };
+    }
+
+    const users = await User.find(query)
       .select("name email identifier role department status lastActive")
       .sort({ createdAt: -1 });
 
