@@ -227,7 +227,7 @@ app.put(
 /**
  * @swagger
  * /api/auth/remove-photo/{id}:
- *   put:
+ *   delete:
  *     summary: Remove user profile photo
  *     tags: [Auth]
  *     security:
@@ -250,7 +250,7 @@ app.put(
  *         description: Server error
  */
 // Prefixed with /api/auth to match your Swagger specification
-app.put('/api/auth/remove-photo/:id', protect, async (req, res) => {
+app.delete('/api/auth/remove-photo/:id', protect, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 

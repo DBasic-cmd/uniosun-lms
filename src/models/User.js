@@ -32,6 +32,7 @@ const userSchema = new mongoose.Schema({
   status: { type: String, enum: ["active", "suspended"], default: "active" },
   department: String,
   lastActive: { type: Date },
+  profileImage: String,
   profileImages: [
     {
       url: String,
