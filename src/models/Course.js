@@ -10,6 +10,14 @@ const courseSchema = new mongoose.Schema({
   materials: [{
     title: String,
     s3Key: String,
+    description: String,
+    category: String,
+    week: Number,
+    size: String,
+    allowDownload: { type: Boolean, default: true },
+    fileName: String,
+    mimeType: String,
+    duration: String,
     uploadedAt: { type: Date, default: Date.now }
   }]
 });

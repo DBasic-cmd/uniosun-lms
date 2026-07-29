@@ -113,12 +113,37 @@ mongoose.connect(process.env.MONGO_URI)
 app.post('/api/courses/:courseCode/upload', upload.single('material'), async (req, res) => {
   try {
     const { courseCode } = req.params;
-    const { title } = req.body;
+    const {
+      title,
+      description,
+      category,
+      week,
+      size,
+      allowDownload,
+      fileName,
+      mimeType,
+      duration
+    } = req.body;
 
     const course = await Course.findOneAndUpdate(
       { courseCode },
-      { $push: { materials: { title, s3Key: req.file.key } } },
-      { returnDocument: 'after', upsert: true }
+      {
+        $push: {
+          materials: {
+            title,
+            s3Key: req.file.key,
+            description,
+            category,
+            week: Number(week || 10),
+            size,
+            allowDownload: allowDownload === 'true' || allowDownload === true,
+            fileName: fileName || req.file.originalname,
+            mimeType: mimeType || req.file.mimetype,
+            duration
+          }
+        }
+      },
+      { returnDocument: "after", upsert: true }
     );
 
     const tempUrl = await generateDownloadUrl(req.file.key);
