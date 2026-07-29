@@ -202,21 +202,12 @@ app.put(
         return res.status(400).json({ error: "Image must be less than 200KB" });
       }
 
-      const fileName = `profile/${user._id}-${crypto.randomUUID()}`;
-
-      // Fixed: Implicit upload function hook used here matching S3 configuration architecture
-      const imageUrl = await uploadToS3(
-        req.file.buffer,
-        fileName,
-        req.file.mimetype
-      );
-
-      user.profileImage = imageUrl;
+      user.profileImage = req.file.location;
       await user.save();
 
       res.json({
         message: "Profile photo updated",
-        profileImage: imageUrl
+        profileImage: req.file.location
       });
     } catch (err) {
       res.status(500).json({ error: err.message });
