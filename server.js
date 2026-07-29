@@ -202,12 +202,14 @@ app.put(
         return res.status(400).json({ error: "Image must be less than 200KB" });
       }
 
-      user.profileImage = req.file.location;
+      user.profileImage = req.file.key;
       await user.save();
+
+      const tempUrl = await generateDownloadUrl(req.file.key);
 
       res.json({
         message: "Profile photo updated",
-        profileImage: req.file.location
+        profileImage: tempUrl
       });
     } catch (err) {
       res.status(500).json({ error: err.message });

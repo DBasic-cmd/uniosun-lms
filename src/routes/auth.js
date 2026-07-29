@@ -5,6 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { protect, isAdmin } = require("../middleware/authMiddleware");
 const Course = require("../models/Course");
+const { generateDownloadUrl } = require("../utils/s3Helpers");
 
 /**
  * @swagger
@@ -157,6 +158,8 @@ router.post("/login", async (req, res) => {
       { expiresIn: "24h" },
     );
 
+    const tempUrl = user.profileImage ? await generateDownloadUrl(user.profileImage) : "";
+
     res.json({
       token,
       user: {
@@ -165,6 +168,7 @@ router.post("/login", async (req, res) => {
         email: user.email,
         role: user.role,
         identifier: user.identifier,
+        profileImage: tempUrl,
       },
     });
   } catch (err) {
