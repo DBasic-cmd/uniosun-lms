@@ -161,11 +161,12 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
 // GET presigned download URL for course materials
 app.get('/api/courses/material/download', protect, async (req, res) => {
   try {
-    const { key } = req.query;
+    const { key, download } = req.query;
     if (!key) {
       return res.status(400).json({ error: "S3 Key is required" });
     }
-    const downloadUrl = await generateDownloadUrl(key);
+    const isDownload = download === 'true';
+    const downloadUrl = await generateDownloadUrl(key, isDownload);
     res.json({ downloadUrl });
   } catch (err) {
     res.status(500).json({ error: err.message });

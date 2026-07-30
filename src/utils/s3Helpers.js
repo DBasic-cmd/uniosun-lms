@@ -2,10 +2,11 @@ const { GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const s3 = require("../config/s3");
 
-const generateDownloadUrl = async (fileKey) => {
+const generateDownloadUrl = async (fileKey, downloadMode = false) => {
   const command = new GetObjectCommand({
     Bucket: process.env.AWS_BUCKET_NAME,
     Key: fileKey,
+    ResponseContentDisposition: downloadMode ? "attachment" : "inline",
   });
 
   // URL expires in 3600 seconds (1 hour)
