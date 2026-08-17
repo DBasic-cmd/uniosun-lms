@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const Assignment = require('../models/Assignment');
 const Group = require('../models/Group');
 const AssignmentSubmission = require('../models/AssignmentSubmission');
+const User = require('../models/User');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
@@ -86,6 +87,64 @@ router.post('/', protect, verifyLecturer, async (req, res) => {
       createdBy: req.user.id
     });
     await newAssignment.save();
+
+    // Automatic Group Partitioning Logic
+    if (newAssignment.isGroupAssignment && newAssignment.groupMethod !== 'student_choose') {
+      const courseId = newAssignment.course;
+      const groupSize = newAssignment.groupSize || 4;
+
+      // Find all students enrolled in this course
+      const students = await User.find({ role: 'student', enrolledCourses: courseId });
+
+      if (students.length > 0) {
+        let groupChunks = [];
+
+        if (newAssignment.groupMethod === 'system_auto') {
+          // Shuffle randomly
+          const shuffled = [...students].sort(() => Math.random() - 0.5);
+          // Partition into chunks
+          for (let i = 0; i < shuffled.length; i += groupSize) {
+            groupChunks.push(shuffled.slice(i, i + groupSize));
+          }
+        } else if (newAssignment.groupMethod === 'matric_last_digit') {
+          // Group by the last digit of the student matric number (identifier)
+          const digitGroups = {};
+          students.forEach(student => {
+            const matric = student.identifier || "";
+            const match = matric.match(/(\d)$/);
+            const digit = match ? match[1] : "0";
+            if (!digitGroups[digit]) digitGroups[digit] = [];
+            digitGroups[digit].push(student);
+          });
+          groupChunks = Object.values(digitGroups);
+        }
+
+        // Save generated groups to database
+        for (let i = 0; i < groupChunks.length; i++) {
+          const chunk = groupChunks[i];
+          const memberIds = chunk.map(s => s._id);
+          const leaderId = memberIds[0]; // Set the first student as the group leader
+
+          // Generate a unique 6-character uppercase code
+          let code;
+          let codeExists = true;
+          while (codeExists) {
+            code = generateGroupCode();
+            const duplicate = await Group.findOne({ code });
+            if (!duplicate) codeExists = false;
+          }
+
+          const newGroup = new Group({
+            assignment: newAssignment._id,
+            leader: leaderId,
+            members: memberIds,
+            code
+          });
+          await newGroup.save();
+        }
+      }
+    }
+
     res.status(201).json({ success: true, message: "Assignment published successfully", assignment: newAssignment });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -475,6 +534,47 @@ router.post('/:assignmentId/submit', protect, upload.single('file'), async (req,
       message: "Assignment submitted successfully.",
       submission
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/assignments/courses/{courseId}:
+ *   get:
+ *     summary: Retrieve all assignments for a course
+ *     tags: [Assignments & Collaboration]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: courseId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: List of assignments retrieved successfully
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Course not found
+ */
+router.get('/courses/:courseId', protect, async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+
+    // Check course access
+    const isEnrolled = req.user.role === 'admin' || req.user.role === 'lecturer' ||
+      (req.user.enrolledCourses && req.user.enrolledCourses.some(id => id.toString() === courseId.toString()));
+
+    if (!isEnrolled) {
+      return res.status(403).json({ error: "Access denied. You are not enrolled in this course." });
+    }
+
+    const assignments = await Assignment.find({ course: courseId }).sort({ dueDate: 1 });
+    res.json({ success: true, assignments });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

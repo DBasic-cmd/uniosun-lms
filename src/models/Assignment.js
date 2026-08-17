@@ -7,6 +7,8 @@ const assignmentSchema = new mongoose.Schema({
   dueDate: { type: Date, required: true },
   attachmentUrl: { type: String }, // Optional attachment uploaded by lecturer
   isGroupAssignment: { type: Boolean, default: false },
+  groupMethod: { type: String, enum: ['student_choose', 'system_auto', 'matric_last_digit'], default: 'student_choose' },
+  groupSize: { type: Number, default: 4 },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
