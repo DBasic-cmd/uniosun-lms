@@ -41,6 +41,10 @@ const swaggerOptions = {
         url: 'http://localhost:5050',
         description: 'Development server',
       },
+      {
+        url: 'https://uniosun-lms.onrender.com',
+        description: 'Render Production server',
+      },
     ],
     components: {
       securitySchemes: {
