@@ -24,6 +24,8 @@ const statsRoutes = require('./src/routes/stats');
 const eventRoutes = require('./src/routes/event');
 const testRoutes = require('./src/routes/test');
 const broadcastRoutes = require('./src/routes/broadcast');
+const assignmentRoutes = require('./src/routes/assignment');
+const forumRoutes = require('./src/routes/forum');
 
 // Swagger definition
 const swaggerOptions = {
@@ -67,6 +69,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/events', eventRoutes); // MOUNTED: Calendar/Events Router
 app.use('/api/tests', testRoutes);   // MOUNTED: CBT Test Engine Router
 app.use('/api/broadcasts', broadcastRoutes);
+app.use('/api/assignments', assignmentRoutes);
+app.use('/api/forum', forumRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
