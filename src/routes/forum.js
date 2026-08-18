@@ -150,7 +150,17 @@ router.get('/courses/:courseId/posts', protect, async (req, res) => {
       .populate('author', 'name role profileImage')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, posts });
+    const postsWithComments = await Promise.all(posts.map(async (post) => {
+      const comments = await ForumComment.find({ post: post._id })
+        .populate('author', 'name role profileImage')
+        .sort({ createdAt: 1 });
+      return {
+        ...post.toObject(),
+        comments
+      };
+    }));
+
+    res.json({ success: true, posts: postsWithComments });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
