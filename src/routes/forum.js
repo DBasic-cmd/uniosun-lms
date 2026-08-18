@@ -67,7 +67,7 @@ const checkCourseAccess = (user, courseId) => {
  */
 router.post('/posts', protect, async (req, res) => {
   try {
-    const { courseId, title, content, postType } = req.body;
+    const { courseId, title, content, postType, targetType, targetLabel } = req.body;
 
     if (!courseId || !title || !content) {
       return res.status(400).json({ error: "courseId, title, and content are required." });
@@ -96,7 +96,9 @@ router.post('/posts', protect, async (req, res) => {
       author: req.user.id,
       title: cleanedTitle,
       content: cleanedContent,
-      postType: type
+      postType: type,
+      targetType: targetType || 'course',
+      targetLabel: targetLabel || 'Entire Course'
     });
 
     await newPost.save();
