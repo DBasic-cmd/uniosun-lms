@@ -17,6 +17,17 @@ const eventSchema = new mongoose.Schema({
     enum: ['once', 'weekly', 'monthly'], 
     default: 'once' 
   },
+  recurrenceEndDate: {
+    type: Date,
+    required: function () { return this.frequency !== 'once'; },
+    validate: {
+      validator: function (value) {
+        return this.frequency === 'once' ||
+          (value && value >= this.date);
+      },
+      message: 'Recurrence end date must be on or after the event date.'
+    }
+  },
   locationType: { 
     type: String, 
     enum: ['online', 'physical'], 
