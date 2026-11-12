@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Course = require('../models/Course');
+const User = require('../models/User');
 const Test = require('../models/Test');
 const Submission = require('../models/Submission');
 const Assignment = require('../models/Assignment');
@@ -140,35 +141,58 @@ router.post('/enroll', protect, async (req, res) => {
       return res.status(403).json({ error: "Access denied. Only students can enroll in courses." });
     }
 
-    const { courseId } = req.body;
+    const { courseId, courseCode, title, department, lecturer } = req.body;
 
-    if (!courseId) {
-      return res.status(400).json({ error: "Course ID is required." });
+    if (!courseId && !courseCode) {
+      return res.status(400).json({ error: "Course ID or courseCode is required." });
     }
 
-    // 2. Verify that the course actually exists in the database
-    const course = await Course.findById(courseId);
+    const mongoose = require('mongoose');
+
+    // 2. Find course by ID or courseCode
+    let course = null;
+    if (courseId && mongoose.Types.ObjectId.isValid(courseId)) {
+      course = await Course.findById(courseId);
+    }
+    if (!course && (courseCode || courseId)) {
+      const codeToSearch = String(courseCode || courseId).toUpperCase().replace(/\s+/g, '');
+      course = await Course.findOne({ courseCode: codeToSearch });
+    }
+
     if (!course) {
-      return res.status(404).json({ error: "Course not found." });
+      return res.status(404).json({ error: "Course not found. You can only enroll in courses created in the system." });
     }
 
-    // 3. Find the user from the DB to check their current enrollment list
-    // (We use req.user.id populated by the protect middleware)
-    const user = await User.findById(req.user.id);
+    // 3. Find the user from the DB to check current enrollment list
+    const user = await User.findById(req.user.id || req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found." });
+    }
 
-    // 4. Check if the course ID is already in their enrolledCourses array
-    if (user.enrolledCourses.includes(courseId)) {
-      return res.status(400).json({ error: "You are already enrolled in this course." });
+    if (!Array.isArray(user.enrolledCourses)) {
+      user.enrolledCourses = [];
+    }
+
+    // 4. Check if already enrolled (idempotent)
+    const isAlreadyEnrolled = user.enrolledCourses.some(id => String(id) === String(course._id));
+    if (isAlreadyEnrolled) {
+      return res.status(200).json({
+        success: true,
+        message: `Already enrolled in ${course.courseCode}: ${course.title}`,
+        enrolledCourses: user.enrolledCourses,
+        course
+      });
     }
 
     // 5. Push the course ID and save the updated profile
-    user.enrolledCourses.push(courseId);
+    user.enrolledCourses.push(course._id);
     await user.save();
 
     res.status(200).json({
       success: true,
       message: `Successfully enrolled in ${course.courseCode}: ${course.title}`,
-      enrolledCourses: user.enrolledCourses
+      enrolledCourses: user.enrolledCourses,
+      course
     });
 
   } catch (err) {

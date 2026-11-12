@@ -9,6 +9,12 @@ const assignmentSchema = new mongoose.Schema({
   isGroupAssignment: { type: Boolean, default: false },
   groupMethod: { type: String, enum: ['student_choose', 'system_auto', 'matric_last_digit'], default: 'student_choose' },
   groupSize: { type: Number, default: 4 },
+  submissionType: { type: String, default: 'File Upload' },
+  totalMarks: { type: Number, default: 20 },
+  type: { type: String, enum: ['individual', 'grouped', 'group'], default: 'individual' },
+  status: { type: String, default: 'Published' },
+  dueTime: { type: String, default: '23:59' },
+  courseCode: { type: String, trim: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 

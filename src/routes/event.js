@@ -3,6 +3,30 @@ const router = express.Router();
 const Event = require('../models/Event');
 const { protect } = require('../middleware/authMiddleware');
 
+function timeToMinutes(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^(\d{1,2}):([0-5]\d)\s*(AM|PM)?$/i);
+  if (!match) return null;
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const period = match[3]?.toUpperCase();
+  if (period) {
+    if (hours < 1 || hours > 12) return null;
+    if (period === 'PM' && hours < 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+  } else if (hours > 23) {
+    return null;
+  }
+  return hours * 60 + minutes;
+}
+
+function isValidEventTimeRange(startTime, endTime) {
+  const start = timeToMinutes(startTime);
+  const end = timeToMinutes(endTime);
+  return start !== null && end !== null && end > start;
+}
+
 
 /**
  * @swagger
@@ -45,6 +69,11 @@ const { protect } = require('../middleware/authMiddleware');
  *                 type: string
  *                 enum: [once, weekly, monthly]
  *                 example: once
+ *               recurrenceEndDate:
+ *                 type: string
+ *                 format: date
+ *                 description: Required for weekly or monthly events; the final date on which the event occurs.
+ *                 example: 2026-12-15
  *               locationType:
  *                 type: string
  *                 enum: [online, physical]
@@ -103,11 +132,37 @@ router.post('/create', protect, async (req, res) => {
       return res.status(403).json({ error: "Access denied. Only lecturers can add events." });
     }
 
-    const { title, course, frequency, locationType, locationDetails, instruction, date, startTime, endTime } = req.body;
+    const {
+      title,
+      course,
+      frequency = 'once',
+      recurrenceEndDate,
+      locationType,
+      locationDetails,
+      instruction,
+      date,
+      startTime,
+      endTime
+    } = req.body;
 
     // Basic validation
     if (!title || !course || !locationType || !locationDetails || !date || !startTime || !endTime) {
       return res.status(400).json({ error: "Please fill all required fields." });
+    }
+
+    if (Number.isNaN(new Date(date).getTime()) || !isValidEventTimeRange(startTime, endTime)) {
+      return res.status(400).json({ error: "Provide a valid event date and an end time after the start time." });
+    }
+
+    if (!['once', 'weekly', 'monthly'].includes(frequency)) {
+      return res.status(400).json({ error: "Frequency must be once, weekly, or monthly." });
+    }
+
+    if (frequency !== 'once' &&
+      (!recurrenceEndDate ||
+        Number.isNaN(new Date(recurrenceEndDate).getTime()) ||
+        new Date(recurrenceEndDate) < new Date(date))) {
+      return res.status(400).json({ error: "Recurring events require an end date on or after the event date." });
     }
 
     const newEvent = new Event({
@@ -115,6 +170,7 @@ router.post('/create', protect, async (req, res) => {
       course,
       lecturer: req.user.id, // Pulled dynamically from the JWT token
       frequency,
+      recurrenceEndDate: frequency === 'once' ? undefined : recurrenceEndDate,
       locationType,
       locationDetails,
       instruction,
@@ -175,7 +231,7 @@ router.put('/:id', protect, async (req, res) => {
     if (req.user.role !== 'lecturer' && req.user.role !== 'admin') {
       return res.status(403).json({ error: "Access denied. Only lecturers can update events." });
     }
-    const { title, course, frequency, locationType, locationDetails, instruction, date, startTime, endTime } = req.body;
+    const { title, course, frequency, recurrenceEndDate, locationType, locationDetails, instruction, date, startTime, endTime } = req.body;
     const event = await Event.findById(req.params.id);
     if (!event) {
       return res.status(404).json({ error: "Event not found." });
@@ -183,13 +239,38 @@ router.put('/:id', protect, async (req, res) => {
     
     if (title) event.title = title;
     if (course) event.course = course;
-    if (frequency) event.frequency = frequency;
+    if (frequency) {
+      if (!['once', 'weekly', 'monthly'].includes(frequency)) {
+        return res.status(400).json({ error: "Frequency must be once, weekly, or monthly." });
+      }
+      event.frequency = frequency;
+    }
+    if (event.frequency === 'once') {
+      event.recurrenceEndDate = undefined;
+    } else if (recurrenceEndDate) {
+      if (Number.isNaN(new Date(recurrenceEndDate).getTime())) {
+        return res.status(400).json({ error: "Provide a valid recurrence end date." });
+      }
+      event.recurrenceEndDate = recurrenceEndDate;
+    }
     if (locationType) event.locationType = locationType;
     if (locationDetails) event.locationDetails = locationDetails;
     if (instruction) event.instruction = instruction;
     if (date) event.date = date;
     if (startTime) event.startTime = startTime;
     if (endTime) event.endTime = endTime;
+
+    if (Number.isNaN(new Date(event.date).getTime()) ||
+      !isValidEventTimeRange(event.startTime, event.endTime)) {
+      return res.status(400).json({ error: "Provide a valid event date and an end time after the start time." });
+    }
+
+    if (event.frequency !== 'once' &&
+      (!event.recurrenceEndDate ||
+        Number.isNaN(new Date(event.recurrenceEndDate).getTime()) ||
+        new Date(event.recurrenceEndDate) < new Date(event.date))) {
+      return res.status(400).json({ error: "Recurring events require an end date on or after the event date." });
+    }
 
     await event.save();
     res.status(200).json({ success: true, message: "Event updated successfully!", event });

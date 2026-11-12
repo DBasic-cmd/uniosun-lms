@@ -38,7 +38,7 @@ const { protect } = require('../middleware/authMiddleware');
  *                 example: Harmattan Semester Test 1
  *               testType:
  *                 type: string
- *                 enum: [multiple-choice, theory]
+ *                 enum: [multiple-choice, theory, mixed]
  *               date:
  *                 type: string
  *                 format: date
@@ -49,6 +49,10 @@ const { protect } = require('../middleware/authMiddleware');
  *               endTime:
  *                 type: string
  *                 example: "11:00 AM"
+ *               duration:
+ *                 type: number
+ *                 minimum: 1
+ *                 description: Test duration in minutes.
  *               numberOfQuestions:
  *                 type: number
  *                 example: 20
@@ -112,9 +116,54 @@ const verifyLecturer = (req, res, next) => {
 // Create Test Settings
 router.post('/settings', protect, verifyLecturer, async (req, res) => {
   try {
+    const { date, startTime, endTime, duration } = req.body;
+    const scheduledStart = getLocalDateTime(date, startTime);
+    const scheduledEnd = getLocalDateTime(date, endTime);
+    if (Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime()) ||
+      scheduledEnd <= scheduledStart ||
+      (duration !== undefined &&
+        (!Number.isInteger(Number(duration)) ||
+          Number(duration) < 1 ||
+          scheduledEnd - scheduledStart !== Number(duration) * 60000))) {
+      return res.status(400).json({ error: "Provide a valid test date, start/end time, and positive duration." });
+    }
+
     const newTest = new Test({ ...req.body, lecturer: req.user.id });
     await newTest.save();
     res.status(201).json({ success: true, message: "Test scheduled successfully", test: newTest });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update Test Settings
+router.patch('/settings/:testId', protect, verifyLecturer, async (req, res) => {
+  try {
+    const test = await Test.findById(req.params.testId);
+    if (!test) return res.status(404).json({ error: "Test configuration not found" });
+
+    if (test.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. You can only update your own tests." });
+    }
+
+    const candidate = { ...test.toObject(), ...req.body };
+    const scheduledStart = getLocalDateTime(candidate.date, candidate.startTime);
+    const scheduledEnd = getLocalDateTime(candidate.date, candidate.endTime);
+    if (Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime()) ||
+      scheduledEnd <= scheduledStart ||
+      (candidate.duration !== undefined &&
+        (!Number.isInteger(Number(candidate.duration)) ||
+          Number(candidate.duration) < 1 ||
+          scheduledEnd - scheduledStart !== Number(candidate.duration) * 60000))) {
+      return res.status(400).json({ error: "Provide a valid test date, start/end time, and positive duration." });
+    }
+
+    const updatedTest = await Test.findByIdAndUpdate(
+      req.params.testId,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    res.json({ success: true, message: "Test updated successfully", test: updatedTest });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -385,24 +434,41 @@ router.delete('/questions/:questionId', protect, verifyLecturer, async (req, res
 // PART 3: STUDENT TEST ENGINE
 // ==========================================
 
-// Helper to convert date and time string to Date object in server timezone
+// Interpret date-only values as local calendar dates and accept 12h or 24h times.
 const getLocalDateTime = (dateField, timeStr) => {
-  const date = new Date(dateField);
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const day = date.getDate();
+  const dateKey = typeof dateField === 'string'
+    ? dateField.slice(0, 10)
+    : '';
+  const dateParts = /^\d{4}-\d{2}-\d{2}$/.test(dateKey)
+    ? dateKey.split('-').map(Number)
+    : (() => {
+        const date = new Date(dateField);
+        return Number.isNaN(date.getTime())
+          ? []
+          : [date.getFullYear(), date.getMonth() + 1, date.getDate()];
+      })();
+  if (dateParts.length !== 3 || typeof timeStr !== 'string') return new Date(NaN);
 
-  const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!match) return date;
+  const timeMatch = timeStr.match(/^(\d{1,2}):([0-5]\d)\s*(AM|PM)?$/i);
+  if (!timeMatch) return new Date(NaN);
+  let hours = Number(timeMatch[1]);
+  const minutes = Number(timeMatch[2]);
+  const ampm = timeMatch[3]?.toUpperCase();
 
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
+  if (ampm) {
+    if (hours < 1 || hours > 12) return new Date(NaN);
+    if (ampm === 'PM' && hours < 12) hours += 12;
+    if (ampm === 'AM' && hours === 12) hours = 0;
+  } else if (hours > 23) {
+    return new Date(NaN);
+  }
 
-  if (ampm === 'PM' && hours < 12) hours += 12;
-  if (ampm === 'AM' && hours === 12) hours = 0;
-
-  return new Date(year, month, day, hours, minutes, 0, 0);
+  const [year, month, day] = dateParts;
+  const result = new Date(year, month - 1, day, hours, minutes, 0, 0);
+  if (result.getFullYear() !== year || result.getMonth() !== month - 1 || result.getDate() !== day) {
+    return new Date(NaN);
+  }
+  return result;
 };
 
 /**
@@ -634,6 +700,7 @@ router.get('/courses/:courseId', protect, async (req, res) => {
         date: test.date,
         startTime: test.startTime,
         endTime: test.endTime,
+        duration: test.duration,
         numberOfQuestions: test.numberOfQuestions,
         marksPerQuestion: test.marksPerQuestion,
         instructions: test.instructions,

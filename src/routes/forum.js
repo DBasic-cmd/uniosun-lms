@@ -67,7 +67,7 @@ const checkCourseAccess = (user, courseId) => {
  */
 router.post('/posts', protect, async (req, res) => {
   try {
-    const { courseId, title, content, postType } = req.body;
+    const { courseId, title, content, postType, targetType, targetLabel } = req.body;
 
     if (!courseId || !title || !content) {
       return res.status(400).json({ error: "courseId, title, and content are required." });
@@ -96,7 +96,9 @@ router.post('/posts', protect, async (req, res) => {
       author: req.user.id,
       title: cleanedTitle,
       content: cleanedContent,
-      postType: type
+      postType: type,
+      targetType: targetType || 'course',
+      targetLabel: targetLabel || 'Entire Course'
     });
 
     await newPost.save();
@@ -150,7 +152,17 @@ router.get('/courses/:courseId/posts', protect, async (req, res) => {
       .populate('author', 'name role profileImage')
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, posts });
+    const postsWithComments = await Promise.all(posts.map(async (post) => {
+      const comments = await ForumComment.find({ post: post._id })
+        .populate('author', 'name role profileImage')
+        .sort({ createdAt: 1 });
+      return {
+        ...post.toObject(),
+        comments
+      };
+    }));
+
+    res.json({ success: true, posts: postsWithComments });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
