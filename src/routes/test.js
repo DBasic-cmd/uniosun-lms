@@ -120,6 +120,27 @@ router.post('/settings', protect, verifyLecturer, async (req, res) => {
   }
 });
 
+// Update Test Settings
+router.patch('/settings/:testId', protect, verifyLecturer, async (req, res) => {
+  try {
+    const test = await Test.findById(req.params.testId);
+    if (!test) return res.status(404).json({ error: "Test configuration not found" });
+
+    if (test.lecturer.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. You can only update your own tests." });
+    }
+
+    const updatedTest = await Test.findByIdAndUpdate(
+      req.params.testId,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+    res.json({ success: true, message: "Test updated successfully", test: updatedTest });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // PART 2: QUESTION BANK MANAGEMENT
 // ==========================================

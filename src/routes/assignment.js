@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Assignment = require('../models/Assignment');
+const Course = require('../models/Course');
 const Group = require('../models/Group');
 const AssignmentSubmission = require('../models/AssignmentSubmission');
 const User = require('../models/User');
@@ -82,15 +84,58 @@ const generateGroupCode = () => {
  */
 router.post('/', protect, verifyLecturer, async (req, res) => {
   try {
+    const rawCourse = req.body.course || req.body.courseId;
+    if (!rawCourse) {
+      return res.status(400).json({ error: "Course or courseId is required." });
+    }
+
+    let courseDoc = null;
+    if (mongoose.Types.ObjectId.isValid(rawCourse)) {
+      courseDoc = await Course.findById(rawCourse);
+    }
+    if (!courseDoc && rawCourse) {
+      courseDoc = await Course.findOne({
+        courseCode: String(rawCourse).toUpperCase().replace(/\s+/g, '')
+      });
+    }
+
+    const courseId = courseDoc ? courseDoc._id : rawCourse;
+    const courseCode = courseDoc ? courseDoc.courseCode : (req.body.courseCode || "");
+
+    let parsedDueDate;
+    if (req.body.dueDate) {
+      if (req.body.dueTime && typeof req.body.dueDate === 'string' && !req.body.dueDate.includes('T')) {
+        parsedDueDate = new Date(`${req.body.dueDate}T${req.body.dueTime || '23:59'}:00`);
+      } else {
+        parsedDueDate = new Date(req.body.dueDate);
+      }
+    } else {
+      parsedDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const isGroup = req.body.isGroupAssignment === true || req.body.type === 'grouped' || req.body.type === 'group';
+
     const newAssignment = new Assignment({
       ...req.body,
+      course: courseId,
+      courseCode,
+      title: req.body.title,
+      description: req.body.description,
+      dueDate: parsedDueDate,
+      dueTime: req.body.dueTime || '23:59',
+      isGroupAssignment: isGroup,
+      type: isGroup ? 'grouped' : 'individual',
+      groupMethod: req.body.groupMethod || 'student_choose',
+      groupSize: Number(req.body.groupSize) || 4,
+      submissionType: req.body.submissionType || 'File Upload',
+      totalMarks: Number(req.body.totalMarks) || 20,
+      status: req.body.status || 'Published',
       createdBy: req.user.id
     });
     await newAssignment.save();
 
     // Automatic Group Partitioning Logic
     if (newAssignment.isGroupAssignment && newAssignment.groupMethod !== 'student_choose') {
-      const courseId = newAssignment.course;
       const groupSize = newAssignment.groupSize || 4;
 
       // Find all students enrolled in this course
@@ -173,6 +218,45 @@ router.post('/', protect, verifyLecturer, async (req, res) => {
  *       404:
  *         description: Assignment not found
  */
+router.put('/:assignmentId', protect, verifyLecturer, async (req, res) => {
+  try {
+    const assignment = await Assignment.findById(req.params.assignmentId);
+    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    if (assignment.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. You can only edit your own assignments." });
+    }
+
+    const updateData = { ...req.body };
+    if (req.body.dueDate) {
+      if (req.body.dueTime && typeof req.body.dueDate === 'string' && !req.body.dueDate.includes('T')) {
+        updateData.dueDate = new Date(`${req.body.dueDate}T${req.body.dueTime || '23:59'}:00`);
+      } else {
+        updateData.dueDate = new Date(req.body.dueDate);
+      }
+    }
+
+    const updated = await Assignment.findByIdAndUpdate(req.params.assignmentId, updateData, { new: true });
+    res.json({ success: true, assignment: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:assignmentId', protect, verifyLecturer, async (req, res) => {
+  try {
+    const assignment = await Assignment.findById(req.params.assignmentId);
+    if (!assignment) return res.status(404).json({ error: "Assignment not found" });
+    if (assignment.createdBy.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Access denied. You can only delete your own assignments." });
+    }
+
+    await Assignment.findByIdAndDelete(req.params.assignmentId);
+    res.json({ success: true, message: "Assignment deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:assignmentId/submissions', protect, verifyLecturer, async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.assignmentId);
@@ -563,17 +647,43 @@ router.post('/:assignmentId/submit', protect, upload.single('file'), async (req,
  */
 router.get('/courses/:courseId', protect, async (req, res) => {
   try {
-    const courseId = req.params.courseId;
+    const rawCourseId = req.params.courseId;
 
-    // Check course access
-    const isEnrolled = req.user.role === 'admin' || req.user.role === 'lecturer' ||
-      (req.user.enrolledCourses && req.user.enrolledCourses.some(id => id.toString() === courseId.toString()));
+    let courseDoc = null;
+    if (mongoose.Types.ObjectId.isValid(rawCourseId)) {
+      courseDoc = await Course.findById(rawCourseId);
+    }
+    if (!courseDoc && rawCourseId) {
+      courseDoc = await Course.findOne({
+        courseCode: String(rawCourseId).toUpperCase().replace(/\s+/g, '')
+      });
+    }
+
+    const targetCourseId = courseDoc ? courseDoc._id : rawCourseId;
+
+    // Check course access: admin, lecturer, or student enrolled
+    let isEnrolled = req.user.role === 'admin' || req.user.role === 'lecturer';
+    if (!isEnrolled && Array.isArray(req.user.enrolledCourses)) {
+      isEnrolled = req.user.enrolledCourses.some(
+        id => id.toString() === targetCourseId.toString() || (rawCourseId && id.toString() === rawCourseId.toString())
+      );
+    }
 
     if (!isEnrolled) {
       return res.status(403).json({ error: "Access denied. You are not enrolled in this course." });
     }
 
-    const assignments = await Assignment.find({ course: courseId }).sort({ dueDate: 1 });
+    const query = {
+      $or: [
+        { course: targetCourseId },
+        ...(courseDoc ? [{ courseCode: courseDoc.courseCode }] : [])
+      ]
+    };
+    if (mongoose.Types.ObjectId.isValid(rawCourseId)) {
+      query.$or.push({ course: rawCourseId });
+    }
+
+    const assignments = await Assignment.find(query).sort({ dueDate: 1 });
     res.json({ success: true, assignments });
   } catch (err) {
     res.status(500).json({ error: err.message });

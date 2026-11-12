@@ -168,6 +168,8 @@ router.post("/login", async (req, res) => {
         email: user.email,
         role: user.role,
         identifier: user.identifier,
+        department: user.department || "",
+        enrolledCourses: user.enrolledCourses || [],
         profileImage: tempUrl,
       },
     });
@@ -418,7 +420,7 @@ router.get("/user/:id", protect, async (req, res) => {
     }
 
     const user = await User.findById(req.params.id).select(
-      "name email identifier role department status lastActive",
+      "name email identifier role department status enrolledCourses lastActive",
     );
 
     if (!user) {
