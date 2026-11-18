@@ -117,6 +117,9 @@ const verifyLecturer = (req, res, next) => {
 router.post('/settings', protect, verifyLecturer, async (req, res) => {
   try {
     const { date, startTime, endTime, duration } = req.body;
+    if (!await Course.findById(req.body.course)) {
+      return res.status(404).json({ error: "Course not found in this institution." });
+    }
     const scheduledStart = getLocalDateTime(date, startTime);
     const scheduledEnd = getLocalDateTime(date, endTime);
     if (Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime()) ||
@@ -147,6 +150,9 @@ router.patch('/settings/:testId', protect, verifyLecturer, async (req, res) => {
     }
 
     const candidate = { ...test.toObject(), ...req.body };
+    if (candidate.course && !await Course.findById(candidate.course)) {
+      return res.status(404).json({ error: "Course not found in this institution." });
+    }
     const scheduledStart = getLocalDateTime(candidate.date, candidate.startTime);
     const scheduledEnd = getLocalDateTime(candidate.date, candidate.endTime);
     if (Number.isNaN(scheduledStart.getTime()) || Number.isNaN(scheduledEnd.getTime()) ||
@@ -471,6 +477,25 @@ const getLocalDateTime = (dateField, timeStr) => {
   return result;
 };
 
+const isStudent = (user) => user.role === 'student';
+
+const isEnrolledIn = (user, courseId) =>
+  Array.isArray(user.enrolledCourses) &&
+  user.enrolledCourses.some((id) => String(id) === String(courseId));
+
+// Lecturers and admins may view any test; students only tests of courses they take.
+const canAccessCourse = (user, courseId) => !isStudent(user) || isEnrolledIn(user, courseId);
+
+// The questions a test shows, in a stable order, so taking and reviewing agree.
+const getTestQuestions = (test) =>
+  Question.find({ test: test._id }).sort({ _id: 1 }).limit(test.numberOfQuestions);
+
+const describeCourse = (course) => ({
+  courseId: course?._id || null,
+  courseCode: course?.courseCode || '',
+  courseTitle: course?.title || '',
+});
+
 /**
  * @swagger
  * /api/tests/{testId}/questions/student:
@@ -496,8 +521,16 @@ const getLocalDateTime = (dateField, timeStr) => {
 // Get Questions for Student (Excluding correctAnswer)
 router.get('/:testId/questions/student', protect, async (req, res) => {
   try {
-    const test = await Test.findById(req.params.testId);
+    const test = await Test.findById(req.params.testId).populate('course', 'courseCode title');
     if (!test) return res.status(404).json({ error: "Test configuration not found" });
+
+    if (!canAccessCourse(req.user, test.course?._id)) {
+      return res.status(403).json({ error: "You are not enrolled in this course." });
+    }
+
+    if (isStudent(req.user) && await Submission.exists({ student: req.user.id, test: test._id })) {
+      return res.status(400).json({ error: "You have already submitted this test." });
+    }
 
     // Validate that the test is currently open/running
     const currentTime = new Date();
@@ -514,11 +547,23 @@ router.get('/:testId/questions/student', protect, async (req, res) => {
     }
 
     // Retrieve questions, projecting out correctAnswer
-    const questions = await Question.find({ test: req.params.testId })
-      .select('-correctAnswer')
-      .limit(test.numberOfQuestions);
+    const questions = await getTestQuestions(test).select('-correctAnswer');
 
-    res.json({ success: true, questions });
+    res.json({
+      success: true,
+      test: {
+        _id: test._id,
+        testTitle: test.testTitle,
+        testType: test.testType,
+        duration: test.duration,
+        numberOfQuestions: test.numberOfQuestions,
+        marksPerQuestion: test.marksPerQuestion,
+        instructions: test.instructions,
+        scheduledEnd,
+        ...describeCourse(test.course),
+      },
+      questions,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -572,14 +617,18 @@ router.post('/:testId/submit', protect, async (req, res) => {
     const testId = req.params.testId;
     const studentId = req.user.id;
 
+    const test = await Test.findById(testId);
+    if (!test) return res.status(404).json({ error: "Test configuration not found" });
+
+    if (!isStudent(req.user) || !isEnrolledIn(req.user, test.course)) {
+      return res.status(403).json({ error: "Only students enrolled in this course can submit this test." });
+    }
+
     // Check if already submitted
     const existingSubmission = await Submission.findOne({ student: studentId, test: testId });
     if (existingSubmission) {
       return res.status(400).json({ error: "You have already submitted this test." });
     }
-
-    const test = await Test.findById(testId);
-    if (!test) return res.status(404).json({ error: "Test configuration not found" });
 
     // Validate submission time
     const currentTime = new Date();
@@ -595,27 +644,27 @@ router.post('/:testId/submit', protect, async (req, res) => {
       return res.status(400).json({ error: "Test session has closed. Submission rejected." });
     }
 
-    // Retrieve the questions for this test to fetch correct answers
-    const questions = await Question.find({ test: testId });
+    // Grade only against the questions this test serves, once per question.
+    const questions = await getTestQuestions(test);
     const questionsMap = new Map(questions.map(q => [q._id.toString(), q]));
 
-    const answers = req.body.answers || [];
+    const answers = Array.isArray(req.body.answers) ? req.body.answers : [];
+    const seen = new Set();
     let score = 0;
+    const formattedAnswers = [];
 
-    const formattedAnswers = answers.map(ans => {
-      const question = questionsMap.get(ans.questionId);
-      if (question) {
-        // Compare answers safely (ignoring case/whitespace)
-        const studentAns = String(ans.selectedAnswer).trim().toLowerCase();
-        const correctAns = String(question.correctAnswer).trim().toLowerCase();
-        if (studentAns === correctAns) {
-          score += test.marksPerQuestion;
-        }
+    answers.forEach((ans) => {
+      const questionId = String(ans?.questionId || '');
+      const question = questionsMap.get(questionId);
+      const selected = String(ans?.selectedAnswer ?? '').trim();
+      if (!question || !selected || seen.has(questionId)) return;
+      seen.add(questionId);
+
+      // Compare answers safely (ignoring case/whitespace)
+      if (selected.toLowerCase() === String(question.correctAnswer).trim().toLowerCase()) {
+        score += test.marksPerQuestion;
       }
-      return {
-        question: ans.questionId,
-        selectedAnswer: ans.selectedAnswer
-      };
+      formattedAnswers.push({ question: question._id, selectedAnswer: selected });
     });
 
     const totalPossibleScore = test.numberOfQuestions * test.marksPerQuestion;
@@ -638,6 +687,9 @@ router.post('/:testId/submit', protect, async (req, res) => {
       submissionId: submission._id
     });
   } catch (err) {
+    if (err.code === 11000) {
+      return res.status(400).json({ error: "You have already submitted this test." });
+    }
     res.status(500).json({ error: err.message });
   }
 });
@@ -671,15 +723,21 @@ router.get('/courses/:courseId', protect, async (req, res) => {
     const course = await Course.findById(courseId);
     if (!course) return res.status(404).json({ error: "Course not found" });
 
-    // Check course access
-    const isEnrolled = req.user.role === 'admin' || req.user.role === 'lecturer' ||
-      (req.user.enrolledCourses && req.user.enrolledCourses.some(id => id.toString() === courseId.toString()));
-
-    if (!isEnrolled) {
+    if (!canAccessCourse(req.user, courseId)) {
       return res.status(403).json({ error: "Access denied. You are not enrolled in this course." });
     }
 
     const tests = await Test.find({ course: courseId }).sort({ date: 1 });
+
+    // A student also sees whether they have taken each test, and their score.
+    const submissionsByTest = new Map();
+    if (isStudent(req.user) && tests.length) {
+      const submissions = await Submission.find({
+        student: req.user.id,
+        test: { $in: tests.map((test) => test._id) },
+      }).select('test score totalPossibleScore createdAt');
+      submissions.forEach((submission) => submissionsByTest.set(String(submission.test), submission));
+    }
 
     const currentTime = new Date();
     const formattedTests = tests.map(test => {
@@ -693,6 +751,7 @@ router.get('/courses/:courseId', protect, async (req, res) => {
         status = "closed";
       }
 
+      const submission = submissionsByTest.get(String(test._id));
       return {
         _id: test._id,
         testTitle: test.testTitle,
@@ -706,7 +765,13 @@ router.get('/courses/:courseId', protect, async (req, res) => {
         instructions: test.instructions,
         scheduledStart,
         scheduledEnd,
-        status
+        status,
+        ...describeCourse(course),
+        submission: submission ? {
+          score: submission.score,
+          totalPossibleScore: submission.totalPossibleScore,
+          submittedAt: submission.createdAt,
+        } : null,
       };
     });
 
@@ -743,15 +808,17 @@ router.get('/:testId/results', protect, async (req, res) => {
     const testId = req.params.testId;
     const studentId = req.user.id;
 
-    const test = await Test.findById(testId);
+    const test = await Test.findById(testId).populate('course', 'courseCode title');
     if (!test) return res.status(404).json({ error: "Test configuration not found" });
 
-    // Validate if the student is allowed to review
-    // They are only allowed to see correct answers if:
-    // 1. They have already submitted the test.
-    // 2. Or the test session has fully closed.
+    if (!canAccessCourse(req.user, test.course?._id)) {
+      return res.status(403).json({ error: "You are not enrolled in this course." });
+    }
+
+    // A student may see the correct answers once they have submitted,
+    // or once the test session has fully closed.
     const submission = await Submission.findOne({ student: studentId, test: testId });
-    
+
     const currentTime = new Date();
     const scheduledEnd = getLocalDateTime(test.date, test.endTime);
     const isClosed = currentTime > new Date(scheduledEnd.getTime() + 60 * 1000);
@@ -760,22 +827,18 @@ router.get('/:testId/results', protect, async (req, res) => {
       return res.status(400).json({ error: "You cannot review the results of this test until you submit or the test session closes." });
     }
 
-    // Retrieve all questions for this test (including correctAnswer)
-    const questions = await Question.find({ test: testId });
+    const questions = await getTestQuestions(test);
 
-    // Map student's selected answers
+    // Map student's selected answers (stored per answer as `question`)
     const studentAnswersMap = new Map();
-    if (submission && submission.answers) {
-      submission.answers.forEach(ans => {
-        studentAnswersMap.set(ans.questionId.toString(), ans.selectedAnswer);
-      });
-    }
+    (submission?.answers || []).forEach((ans) => {
+      if (ans.question) studentAnswersMap.set(String(ans.question), ans.selectedAnswer);
+    });
 
-    const review = questions.map(q => {
-      const selectedAnswer = studentAnswersMap.get(q._id.toString()) || null;
-      // We normalize strings to do a clean case-insensitive comparison or trim comparison
-      const isCorrect = selectedAnswer !== null && 
-        selectedAnswer.toString().trim().toLowerCase() === q.correctAnswer.toString().trim().toLowerCase();
+    const review = questions.map((q) => {
+      const selectedAnswer = studentAnswersMap.get(q._id.toString()) ?? null;
+      const isCorrect = selectedAnswer !== null &&
+        String(selectedAnswer).trim().toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
 
       return {
         questionId: q._id,
@@ -790,10 +853,15 @@ router.get('/:testId/results', protect, async (req, res) => {
     res.json({
       success: true,
       testTitle: test.testTitle,
+      testType: test.testType,
+      duration: test.duration,
+      ...describeCourse(test.course),
       score: submission ? submission.score : 0,
       totalPossibleScore: test.numberOfQuestions * test.marksPerQuestion,
       submittedAt: submission ? submission.createdAt : null,
       missed: !submission,
+      correctCount: review.filter((item) => item.isCorrect).length,
+      answeredCount: review.filter((item) => item.selectedAnswer !== null).length,
       review
     });
   } catch (err) {

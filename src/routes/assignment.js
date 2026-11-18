@@ -98,6 +98,9 @@ router.post('/', protect, verifyLecturer, async (req, res) => {
         courseCode: String(rawCourse).toUpperCase().replace(/\s+/g, '')
       });
     }
+    if (!courseDoc) {
+      return res.status(404).json({ error: "Course not found in this institution." });
+    }
 
     const courseId = courseDoc ? courseDoc._id : rawCourse;
     const courseCode = courseDoc ? courseDoc.courseCode : (req.body.courseCode || "");
@@ -227,6 +230,23 @@ router.put('/:assignmentId', protect, verifyLecturer, async (req, res) => {
     }
 
     const updateData = { ...req.body };
+    const updatedCourseId = req.body.course || req.body.courseId;
+    if (updatedCourseId) {
+      let updatedCourse = null;
+      if (mongoose.Types.ObjectId.isValid(updatedCourseId)) {
+        updatedCourse = await Course.findById(updatedCourseId);
+      }
+      if (!updatedCourse) {
+        updatedCourse = await Course.findOne({
+          courseCode: String(updatedCourseId).toUpperCase().replace(/\s+/g, '')
+        });
+      }
+      if (!updatedCourse) {
+        return res.status(404).json({ error: "Course not found in this institution." });
+      }
+      updateData.course = updatedCourse._id;
+      delete updateData.courseId;
+    }
     if (req.body.dueDate) {
       if (req.body.dueTime && typeof req.body.dueDate === 'string' && !req.body.dueDate.includes('T')) {
         updateData.dueDate = new Date(`${req.body.dueDate}T${req.body.dueTime || '23:59'}:00`);

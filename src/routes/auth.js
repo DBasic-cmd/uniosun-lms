@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const { protect, isAdmin } = require("../middleware/authMiddleware");
 const Course = require("../models/Course");
 const { generateDownloadUrl } = require("../utils/s3Helpers");
+const Institution = require("../models/Institution");
 
 /**
  * @swagger
@@ -20,19 +21,21 @@ const { generateDownloadUrl } = require("../utils/s3Helpers");
  *   post:
  *     summary: Register a new user
  *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             description: Institution administrators must call this endpoint while authenticated; new accounts are assigned to their institution.
  *             required:
  *               - name
  *               - identifier
  *               - email
  *               - password
  *               - role
- *               - department
  *             properties:
  *               name:
  *                 type: string
@@ -54,11 +57,16 @@ const { generateDownloadUrl } = require("../utils/s3Helpers");
  *       500:
  *         description: Server error
  */
-router.post("/register", async (req, res) => {
+router.post("/register", protect, isAdmin, async (req, res) => {
   try {
     const { name, identifier, email, password, role, department } = req.body;
 
+    if (!["student", "lecturer", "admin"].includes(role)) {
+      return res.status(400).json({ error: "Invalid institution user role." });
+    }
+
     const existingUser = await User.findOne({
+      institutionId: req.user.institutionId,
       $or: [{ identifier }, { email: email.toLowerCase() }],
     });
 
@@ -75,6 +83,7 @@ router.post("/register", async (req, res) => {
       password,
       role,
       department,
+      institutionId: req.user.institutionId,
     });
     await user.save();
 
@@ -105,6 +114,9 @@ router.post("/register", async (req, res) => {
  *                 description: Email or identifier
  *               password:
  *                 type: string
+ *               institutionCode:
+ *                 type: string
+ *                 description: Required for institution users; omit only for platform administrators
  *     responses:
  *       200:
  *         description: Login successful
@@ -128,11 +140,34 @@ router.post("/register", async (req, res) => {
  */
 router.post("/login", async (req, res) => {
   try {
-    const { loginKey, password } = req.body;
+    const { loginKey, password, institutionCode } = req.body;
+    if (!loginKey || !password) {
+      return res.status(400).json({ error: "Login and password are required." });
+    }
 
-    const user = await User.findOne({
-      $or: [{ email: loginKey.toLowerCase() }, { identifier: loginKey }],
-    });
+    let user;
+    let institution;
+    if (institutionCode) {
+      institution = await Institution.findOne({
+        code: String(institutionCode).trim().toLowerCase(),
+        status: "active",
+      });
+      if (!institution) {
+        return res.status(404).json({ error: "Institution not found or inactive." });
+      }
+      user = await User.findOne({
+        institutionId: institution._id,
+        $or: [
+          { email: String(loginKey).toLowerCase() },
+          { identifier: loginKey },
+        ],
+      });
+    } else {
+      user = await User.findOne({
+        role: "platform_admin",
+        email: String(loginKey).toLowerCase(),
+      });
+    }
 
     if (!user) {
       return res.status(404).json({ error: "Invalid Credentials" });
@@ -159,6 +194,9 @@ router.post("/login", async (req, res) => {
     );
 
     const tempUrl = user.profileImage ? await generateDownloadUrl(user.profileImage) : "";
+    if (user.institutionId) {
+      institution = institution || await Institution.findById(user.institutionId).select("name code");
+    }
 
     res.json({
       token,
@@ -169,6 +207,12 @@ router.post("/login", async (req, res) => {
         role: user.role,
         identifier: user.identifier,
         department: user.department || "",
+        institutionId: user.institutionId || null,
+        institution: institution ? {
+          id: institution._id,
+          name: institution.name,
+          code: institution.code,
+        } : null,
         enrolledCourses: user.enrolledCourses || [],
         profileImage: tempUrl,
       },
@@ -309,7 +353,12 @@ router.put("/edit-user/:id", protect, async (req, res) => {
 
     // Strict admin overrides
     if (req.user.role === "admin") {
-      if (role) user.role = role;
+      if (role) {
+        if (!["student", "lecturer", "admin"].includes(role)) {
+          return res.status(400).json({ error: "Invalid institution user role." });
+        }
+        user.role = role;
+      }
       if (status) user.status = status;
     }
 

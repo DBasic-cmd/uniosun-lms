@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const assignmentSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
@@ -17,5 +18,7 @@ const assignmentSchema = new mongoose.Schema({
   courseCode: { type: String, trim: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
+
+tenantScopePlugin(assignmentSchema);
 
 module.exports = mongoose.models.Assignment || mongoose.model('Assignment', assignmentSchema);

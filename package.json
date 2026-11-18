@@ -4,9 +4,11 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test \"test/*.test.js\"",
     "start": "node server.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "migrate:tenants": "node scripts/migrate-tenants.js",
+    "create:platform-admin": "node scripts/create-platform-admin.js"
   },
   "keywords": [],
   "author": "",

@@ -9,4 +9,18 @@ const s3 = new S3Client({
   },
 });
 
+// Uploads (profile photos, course materials) fail with unclear AWS errors when
+// these are missing or still placeholders, so say so at startup.
+const S3_SETTINGS = ["AWS_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_BUCKET_NAME"];
+const notConfigured = S3_SETTINGS.filter((name) => {
+  const value = process.env[name];
+  return !value || /mock|dummy|example|changeme|your[_-]/i.test(value);
+});
+if (notConfigured.length) {
+  console.warn(
+    `[S3] Not configured: ${notConfigured.join(", ")} missing or placeholder. ` +
+      "File uploads will fail until real AWS values are set in .env."
+  );
+}
+
 module.exports = s3;

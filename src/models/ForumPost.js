@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const forumPostSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
@@ -13,5 +14,7 @@ const forumPostSchema = new mongoose.Schema({
   targetType: { type: String, enum: ['course', 'student', 'group'], default: 'course' },
   targetLabel: { type: String, default: 'Entire Course' }
 }, { timestamps: true });
+
+tenantScopePlugin(forumPostSchema);
 
 module.exports = mongoose.models.ForumPost || mongoose.model('ForumPost', forumPostSchema);

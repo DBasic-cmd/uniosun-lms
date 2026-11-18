@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const testSchema = new mongoose.Schema({
   course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
@@ -13,5 +14,7 @@ const testSchema = new mongoose.Schema({
   marksPerQuestion: { type: Number, required: true, default: 1 },
   instructions: { type: String, trim: true }
 }, { timestamps: true });
+
+tenantScopePlugin(testSchema);
 
 module.exports = mongoose.models.Test || mongoose.model('Test', testSchema);

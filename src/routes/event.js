@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Event = require('../models/Event');
+const Course = require('../models/Course');
 const { protect } = require('../middleware/authMiddleware');
 
 function timeToMinutes(value) {
@@ -150,6 +151,10 @@ router.post('/create', protect, async (req, res) => {
       return res.status(400).json({ error: "Please fill all required fields." });
     }
 
+    if (!await Course.findById(course)) {
+      return res.status(404).json({ error: "Course not found in this institution." });
+    }
+
     if (Number.isNaN(new Date(date).getTime()) || !isValidEventTimeRange(startTime, endTime)) {
       return res.status(400).json({ error: "Provide a valid event date and an end time after the start time." });
     }
@@ -235,6 +240,9 @@ router.put('/:id', protect, async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) {
       return res.status(404).json({ error: "Event not found." });
+    }
+    if (course && !await Course.findById(course)) {
+      return res.status(404).json({ error: "Course not found in this institution." });
     }
     
     if (title) event.title = title;

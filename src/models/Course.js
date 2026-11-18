@@ -1,7 +1,8 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const courseSchema = new mongoose.Schema({
-  courseCode: { type: String, required: true, unique: true, uppercase: true },
+  courseCode: { type: String, required: true, uppercase: true },
   title: { type: String, required: true },
   department: { type: String, required: true }, // e.g., "Computer Science"
   lecturer: { type: String },
@@ -21,5 +22,8 @@ const courseSchema = new mongoose.Schema({
     uploadedAt: { type: Date, default: Date.now }
   }]
 });
+
+courseSchema.index({ institutionId: 1, courseCode: 1 }, { unique: true });
+tenantScopePlugin(courseSchema);
 
 module.exports = mongoose.models.Course || mongoose.model('Course', courseSchema);

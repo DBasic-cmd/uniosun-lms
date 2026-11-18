@@ -24,8 +24,10 @@ const statsRoutes = require('./src/routes/stats');
 const eventRoutes = require('./src/routes/event');
 const testRoutes = require('./src/routes/test');
 const broadcastRoutes = require('./src/routes/broadcast');
+const notificationRoutes = require('./src/routes/notification');
 const assignmentRoutes = require('./src/routes/assignment');
 const forumRoutes = require('./src/routes/forum');
+const institutionRoutes = require('./src/routes/institution');
 
 // Swagger definition
 const swaggerOptions = {
@@ -73,8 +75,10 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/events', eventRoutes); // MOUNTED: Calendar/Events Router
 app.use('/api/tests', testRoutes);   // MOUNTED: CBT Test Engine Router
 app.use('/api/broadcasts', broadcastRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/forum', forumRoutes);
+app.use('/api/institutions', institutionRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
@@ -118,8 +122,11 @@ mongoose.connect(process.env.MONGO_URI)
  *       500:
  *         description: Server error
  */
-app.post('/api/courses/:courseCode/upload', upload.single('material'), async (req, res) => {
+app.post('/api/courses/:courseCode/upload', protect, upload.single('material'), async (req, res) => {
   try {
+    if (req.user.role !== 'lecturer' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Only lecturers or institution administrators can upload course materials." });
+    }
     const { courseCode } = req.params;
     const {
       title,
@@ -132,6 +139,10 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
       mimeType,
       duration
     } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ error: "A course material file is required." });
+    }
 
     const course = await Course.findOneAndUpdate(
       { courseCode },
@@ -151,8 +162,11 @@ app.post('/api/courses/:courseCode/upload', upload.single('material'), async (re
           }
         }
       },
-      { returnDocument: "after", upsert: true }
+      { returnDocument: "after" }
     );
+    if (!course) {
+      return res.status(404).json({ error: "Course not found in this institution." });
+    }
 
     const tempUrl = await generateDownloadUrl(req.file.key);
 
@@ -172,6 +186,10 @@ app.get('/api/courses/material/download', protect, async (req, res) => {
     const { key, download } = req.query;
     if (!key) {
       return res.status(400).json({ error: "S3 Key is required" });
+    }
+    const material = await Course.findOne({ 'materials.s3Key': key }).select('_id');
+    if (!material) {
+      return res.status(404).json({ error: "Course material not found in this institution." });
     }
     const isDownload = download === 'true';
     const downloadUrl = await generateDownloadUrl(key, isDownload);
@@ -226,28 +244,37 @@ app.get('/api/courses/material/download', protect, async (req, res) => {
  *         description: Server error
  */
 // Prefixed with /api/auth to match your Swagger specification
+// Check who is uploading before anything is sent to S3.
+async function canChangePhoto(req, res, next) {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (req.user.id !== user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Unauthorized" });
+    }
+    req.photoOwner = user;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 app.put(
   '/api/auth/upload-photo/:id',
   protect,
-  upload.single('image'),
+  canChangePhoto,
+  upload.uploadProfilePhoto,
   async (req, res) => {
     try {
-      const user = await User.findById(req.params.id);
-
-      if (!user) {
-        return res.status(404).json({ error: "User not found" });
-      }
-
-      if (req.user.id !== user._id.toString() && req.user.role !== 'admin') {
-        return res.status(403).json({ error: "Unauthorized" });
-      }
+      const user = req.photoOwner;
 
       if (!req.file) {
         return res.status(400).json({ error: "No image uploaded" });
-      }
-
-      if (req.file.size > 200 * 1024) {
-        return res.status(400).json({ error: "Image must be less than 200KB" });
       }
 
       user.profileImage = req.file.key;

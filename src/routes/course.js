@@ -234,6 +234,30 @@ router.post('/enroll', protect, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/**
+ * @swagger
+ * /api/courses/mine:
+ *   get:
+ *     summary: Courses the signed-in user is enrolled in
+ *     tags: [Courses]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Enrolled courses only
+ */
+router.get('/mine', protect, async (req, res) => {
+  try {
+    // protect loads the user fresh from the database, so this reflects the
+    // latest enrollments rather than what was true at login.
+    const enrolledIds = Array.isArray(req.user.enrolledCourses) ? req.user.enrolledCourses : [];
+    const courses = await Course.find({ _id: { $in: enrolledIds } }).sort({ courseCode: 1 });
+    res.status(200).json({ count: courses.length, courses, enrolledCourses: enrolledIds });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/', protect, async (req, res) => {
   try {
     const courses = await Course.find().sort({ courseCode: 1 });

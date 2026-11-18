@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const submissionSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -16,5 +17,6 @@ const submissionSchema = new mongoose.Schema({
 
 // Prevent double submission for the same test by the same student
 submissionSchema.index({ student: 1, test: 1 }, { unique: true });
+tenantScopePlugin(submissionSchema);
 
 module.exports = mongoose.models.Submission || mongoose.model('Submission', submissionSchema);
