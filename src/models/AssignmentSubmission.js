@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const submissionSchema = new mongoose.Schema({
   assignment: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', required: true },
@@ -10,5 +11,7 @@ const submissionSchema = new mongoose.Schema({
   feedback: { type: String },
   submittedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
+
+tenantScopePlugin(submissionSchema);
 
 module.exports = mongoose.models.AssignmentSubmission || mongoose.model('AssignmentSubmission', submissionSchema);

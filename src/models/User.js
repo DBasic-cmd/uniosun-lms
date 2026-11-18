@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const { tenantScopePlugin } = require("./tenantContext");
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -10,12 +11,11 @@ const userSchema = new mongoose.Schema({
     },
   ],
   // Keep identifier for Matrix Number/Staff ID
-  identifier: { type: String, required: true, unique: true },
+  identifier: { type: String, required: true },
   // Add Email
   email: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true,
     match: [
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: {
     type: String,
-    enum: ["student", "lecturer", "admin"],
+    enum: ["student", "lecturer", "admin", "platform_admin"],
     default: "student",
   },
   status: { type: String, enum: ["active", "suspended"], default: "active" },
@@ -40,6 +40,20 @@ const userSchema = new mongoose.Schema({
     },
   ],
 });
+
+userSchema.index({ institutionId: 1, email: 1 }, {
+  unique: true,
+  partialFilterExpression: { institutionId: { $type: "objectId" } },
+});
+userSchema.index({ institutionId: 1, identifier: 1 }, {
+  unique: true,
+  partialFilterExpression: { institutionId: { $type: "objectId" } },
+});
+userSchema.index({ email: 1 }, {
+  unique: true,
+  partialFilterExpression: { role: "platform_admin" },
+});
+tenantScopePlugin(userSchema);
 
 // Hash password before saving
 userSchema.pre("save", async function () {

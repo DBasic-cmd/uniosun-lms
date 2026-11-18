@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const eventSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
@@ -43,5 +44,7 @@ const eventSchema = new mongoose.Schema({
   startTime: { type: String, required: true }, // e.g., "10:00 AM" or "14:00"
   endTime: { type: String, required: true }    // e.g., "12:00 PM" or "16:00"
 }, { timestamps: true });
+
+tenantScopePlugin(eventSchema);
 
 module.exports = mongoose.models.Event || mongoose.model('Event', eventSchema);

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { tenantScopePlugin } = require('./tenantContext');
 
 const questionSchema = new mongoose.Schema({
   test: { type: mongoose.Schema.Types.ObjectId, ref: 'Test', required: true },
@@ -8,5 +9,7 @@ const questionSchema = new mongoose.Schema({
   // Stores the index of the correct option (e.g., 0 for option A, 1 for B) or string answer
   correctAnswer: { type: String, required: true } 
 }, { timestamps: true });
+
+tenantScopePlugin(questionSchema);
 
 module.exports = mongoose.models.Question || mongoose.model('Question', questionSchema);

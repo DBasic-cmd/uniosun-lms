@@ -5,6 +5,7 @@ const ForumComment = require('../models/ForumComment');
 const Course = require('../models/Course');
 const { protect } = require('../middleware/authMiddleware');
 const { Filter } = require('bad-words');
+const { notifyNewPost, notifyReply, safely } = require('../services/notifications');
 
 const filter = new Filter();
 
@@ -103,10 +104,8 @@ router.post('/posts', protect, async (req, res) => {
 
     await newPost.save();
 
-    // Lecturer notification simulation for questions
-    if (type === 'question' && req.user.role === 'student') {
-      console.log(`[NOTIFICATION] Course: ${course.courseCode} | Student ${req.user.name} submitted a new question: "${title}". Lecturer has been notified.`);
-    }
+    // Notify everyone else in the course (students and lecturer).
+    await safely(() => notifyNewPost({ post: newPost, course, author: req.user }));
 
     res.status(201).json({ success: true, message: "Discussion post published successfully", post: newPost });
   } catch (err) {
@@ -330,6 +329,10 @@ router.post('/posts/:postId/comments', protect, async (req, res) => {
     }
 
     await post.save();
+
+    // Notify the post's author and everyone else who has replied.
+    const course = await Course.findById(post.course).select('courseCode');
+    await safely(() => notifyReply({ post, comment: newComment, course, author: req.user }));
 
     res.status(201).json({ success: true, message: "Reply posted successfully", comment: newComment });
   } catch (err) {
