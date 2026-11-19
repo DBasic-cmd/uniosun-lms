@@ -28,6 +28,7 @@ const notificationRoutes = require('./src/routes/notification');
 const assignmentRoutes = require('./src/routes/assignment');
 const forumRoutes = require('./src/routes/forum');
 const institutionRoutes = require('./src/routes/institution');
+const facultyRoutes = require('./src/routes/faculty');
 
 // Swagger definition
 const swaggerOptions = {
@@ -79,6 +80,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/forum', forumRoutes);
 app.use('/api/institutions', institutionRoutes);
+app.use('/api/faculties', facultyRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
